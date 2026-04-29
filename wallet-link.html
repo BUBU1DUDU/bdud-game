@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connect Phantom - BUBU$DUDU</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:#07070f;color:#f0ede6;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+.box{width:100%;max-width:420px;background:#0f0f1a;border:1px solid rgba(245,200,66,.28);border-radius:20px;padding:28px 22px;text-align:center}
+.logo{font-size:42px;margin-bottom:12px}
+h1{font-size:26px;color:#f5c842;margin-bottom:10px}
+p{color:#aaa9bd;line-height:1.55;margin-bottom:18px}
+button{width:100%;border:0;border-radius:14px;padding:15px 18px;background:linear-gradient(135deg,#f5c842,#ff9f1c);color:#080811;font-size:16px;font-weight:700}
+.status{margin-top:16px;color:#aaa9bd;font-size:14px;line-height:1.45;word-break:break-word}
+.ok{color:#4caf50}.err{color:#ff6b6b}
+</style>
+</head>
+<body>
+<div class="box">
+<div class="logo">👻</div>
+<h1>Connect Phantom</h1>
+<p>Connect your Phantom wallet to your BUBU$DUDU Telegram game account. Only your public wallet address will be saved.</p>
+<button id="connectBtn">Connect Phantom</button>
+<div class="status" id="status">This page must be opened inside Phantom.</div>
+</div>
+<script>
+const SUPABASE_URL = "https://zzajeeaeobtqfujyxbez.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6YWplZWFlb2J0cWZ1anl4YmV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMjIzODEsImV4cCI6MjA5Mjc5ODM4MX0.RnrPPalJWIPquNWL8ptDH0FJ2wCggp7fXTb6xjMD2qI";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const params = new URLSearchParams(location.search);
+const playerId = params.get('player_id') || '';
+const playerName = params.get('name') || 'Player';
+const telegramId = params.get('telegram_id') || null;
+const statusEl = document.getElementById('status');
+const btn = document.getElementById('connectBtn');
+
+function setStatus(text, cls) {
+ statusEl.className = 'status ' + (cls || '');
+ statusEl.textContent = text;
+}
+
+async function connectWallet() {
+ if (!playerId) {
+  setStatus('Missing player account. Please open this from the Telegram game.', 'err');
+  return;
+ }
+ const provider = window.solana;
+ if (!provider || !provider.isPhantom) {
+  setStatus('Open this page inside the Phantom app browser, then tap Connect again.', 'err');
+  return;
+ }
+ btn.disabled = true;
+ btn.textContent = 'Connecting...';
+ try {
+  const resp = await provider.connect();
+  const walletAddress = resp.publicKey.toString();
+  const payload = {
+   player_id: playerId,
+   name: playerName,
+   username: playerName,
+   wallet_address: walletAddress,
+   updated_at: new Date().toISOString()
+  };
+  if (telegramId) payload.telegram_id = telegramId;
+  const { error } = await db.from('leaderboard').upsert(payload, { onConflict: 'player_id' });
+  if (error) throw error;
+  localStorage.setItem('bdud_wallet', walletAddress);
+  setStatus('Wallet connected: ' + walletAddress + ' You can return to Telegram now.', 'ok');
+  btn.textContent = 'Wallet Connected';
+ } catch (e) {
+  console.warn(e);
+  setStatus('Connection failed or was cancelled. Please try again.', 'err');
+  btn.disabled = false;
+  btn.textContent = 'Connect Phantom';
+ }
+}
+
+btn.addEventListener('click', connectWallet);
+</script>
+</body>
+</html>
